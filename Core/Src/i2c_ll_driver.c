@@ -34,33 +34,33 @@ static void I2C_LL_EnableClock(I2C_TypeDef *I2Cx)
 static void I2C_LL_ClearErrors(I2C_TypeDef *I2Cx)
 {
   /* AF = Acknowledge Failure: устройство не ответило ACK */
-  if (LL_I2C_IsActiveFlag_AF(I2Cx) != 0U)
+  if (LL_I2C_IsActiveFlag_AF(I2Cx) != 0U) /* Проверяем флаг AF: нет подтверждения ACK от устройства */
   {
-    LL_I2C_ClearFlag_AF(I2Cx);
+    LL_I2C_ClearFlag_AF(I2Cx); /* Очищаем флаг AF */
   }
 
   /* BERR = Bus Error: ошибка на шине I2C */
-  if (LL_I2C_IsActiveFlag_BERR(I2Cx) != 0U)
+  if (LL_I2C_IsActiveFlag_BERR(I2Cx) != 0U) /* Проверяем флаг BERR: ошибка START/STOP или состояние шины */
   {
-    LL_I2C_ClearFlag_BERR(I2Cx);
+    LL_I2C_ClearFlag_BERR(I2Cx); /* Очищаем флаг BERR */
   }
 
   /* ARLO = Arbitration Lost: потеря арбитража */
-  if (LL_I2C_IsActiveFlag_ARLO(I2Cx) != 0U)
+  if (LL_I2C_IsActiveFlag_ARLO(I2Cx) != 0U) /* Проверяем флаг ARLO: I2C потерял управление шиной */
   {
-    LL_I2C_ClearFlag_ARLO(I2Cx);
+    LL_I2C_ClearFlag_ARLO(I2Cx); /* Очищаем флаг ARLO */
   }
 
   /* OVR = Overrun/Underrun: ошибка переполнения или недочитывания */
-  if (LL_I2C_IsActiveFlag_OVR(I2Cx) != 0U)
+  if (LL_I2C_IsActiveFlag_OVR(I2Cx) != 0U) /* Проверяем флаг OVR: данные не успели передаться/прочитаться */
   {
-    LL_I2C_ClearFlag_OVR(I2Cx);
+    LL_I2C_ClearFlag_OVR(I2Cx); /* Очищаем флаг OVR */
   }
 
   /* TIMEOUT = ошибка таймаута SMBus/I2C */
-  if (LL_I2C_IsActiveSMBusFlag_TIMEOUT(I2Cx) != 0U)
+  if (LL_I2C_IsActiveSMBusFlag_TIMEOUT(I2Cx) != 0U) /* Проверяем флаг TIMEOUT: превышено время ожидания на шине */
   {
-    LL_I2C_ClearSMBusFlag_TIMEOUT(I2Cx);
+    LL_I2C_ClearSMBusFlag_TIMEOUT(I2Cx); /* Очищаем флаг TIMEOUT */
   }
 }
 
@@ -71,17 +71,17 @@ static void I2C_LL_ClearErrors(I2C_TypeDef *I2Cx)
 static I2C_LL_Status I2C_LL_CheckErrors(I2C_TypeDef *I2Cx)
 {
   /* Если устройство не ответило подтверждением ACK */
-  if (LL_I2C_IsActiveFlag_AF(I2Cx) != 0U)
+  if (LL_I2C_IsActiveFlag_AF(I2Cx) != 0U) /* AF: устройство не подтвердило адрес или байт данных */
   {
-    LL_I2C_ClearFlag_AF(I2Cx);
+    LL_I2C_ClearFlag_AF(I2Cx); /* Очищаем AF, чтобы он не мешал следующей передаче */
     return I2C_LL_NACK;
   }
 
   /* Если возникла любая серьезная ошибка шины */
-  if ((LL_I2C_IsActiveFlag_BERR(I2Cx) != 0U) ||
-      (LL_I2C_IsActiveFlag_ARLO(I2Cx) != 0U) ||
-      (LL_I2C_IsActiveFlag_OVR(I2Cx) != 0U) ||
-      (LL_I2C_IsActiveSMBusFlag_TIMEOUT(I2Cx) != 0U))
+  if ((LL_I2C_IsActiveFlag_BERR(I2Cx) != 0U) ||          /* BERR: ошибка на I2C-шине */
+      (LL_I2C_IsActiveFlag_ARLO(I2Cx) != 0U) ||          /* ARLO: потеря арбитража */
+      (LL_I2C_IsActiveFlag_OVR(I2Cx) != 0U) ||           /* OVR: переполнение/недочитывание данных */
+      (LL_I2C_IsActiveSMBusFlag_TIMEOUT(I2Cx) != 0U))    /* TIMEOUT: таймаут шины */
   {
     I2C_LL_ClearErrors(I2Cx);
     return I2C_LL_ERROR;
@@ -100,7 +100,7 @@ static I2C_LL_Status I2C_LL_WaitFlag(I2C_TypeDef *I2Cx, uint32_t flag, uint32_t 
   I2C_LL_Status status;
 
   /* Ждем, пока нужный бит flag не станет равен 1 */
-  while ((LL_I2C_ReadReg(I2Cx, SR1) & flag) == 0U)
+  while ((LL_I2C_ReadReg(I2Cx, SR1) & flag) == 0U) /* SR1: регистр состояния I2C, flag — ожидаемый флаг */
   {
     /* Во время ожидания постоянно проверяем ошибки */
     status = I2C_LL_CheckErrors(I2Cx);
@@ -126,7 +126,7 @@ static I2C_LL_Status I2C_LL_WaitFlag(I2C_TypeDef *I2Cx, uint32_t flag, uint32_t 
  */
 static I2C_LL_Status I2C_LL_WaitBusFree(I2C_TypeDef *I2Cx, uint32_t timeout)
 {
-  while (LL_I2C_IsActiveFlag_BUSY(I2Cx) != 0U)
+  while (LL_I2C_IsActiveFlag_BUSY(I2Cx) != 0U) /* BUSY: шина I2C занята передачей */
   {
     /* Если шина слишком долго занята, возвращаем BUSY */
     if (timeout == 0U)
@@ -205,7 +205,7 @@ I2C_LL_Status I2C_LL_Write(I2C_LL_Handle *hi2c, uint8_t dev_addr, const uint8_t 
   LL_I2C_GenerateStartCondition(I2Cx);
 
   /* Ждем флаг SB: START успешно сформирован */
-  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_SB, hi2c->timeout);
+  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_SB, hi2c->timeout); /* SB = Start Bit */
   if (status != I2C_LL_OK)
   {
     LL_I2C_GenerateStopCondition(I2Cx);
@@ -219,7 +219,7 @@ I2C_LL_Status I2C_LL_Write(I2C_LL_Handle *hi2c, uint8_t dev_addr, const uint8_t 
   LL_I2C_TransmitData8(I2Cx, (uint8_t)(dev_addr << 1));
 
   /* Ждем флаг ADDR: устройство ответило на адрес */
-  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_ADDR, hi2c->timeout);
+  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_ADDR, hi2c->timeout); /* ADDR = Address Sent/Matched */
   if (status != I2C_LL_OK)
   {
     LL_I2C_GenerateStopCondition(I2Cx);
@@ -227,13 +227,13 @@ I2C_LL_Status I2C_LL_Write(I2C_LL_Handle *hi2c, uint8_t dev_addr, const uint8_t 
   }
 
   /* Очищаем флаг ADDR после успешной отправки адреса */
-  LL_I2C_ClearFlag_ADDR(I2Cx);
+  LL_I2C_ClearFlag_ADDR(I2Cx); /* ADDR: флаг успешной передачи адреса */
 
   /* Передаем все байты из массива data */
   for (i = 0U; i < size; i++)
   {
     /* Ждем TXE: регистр передачи пустой, можно записать следующий байт */
-    status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_TXE, hi2c->timeout);
+    status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_TXE, hi2c->timeout); /* TXE = Transmit Data Register Empty */
     if (status != I2C_LL_OK)
     {
       LL_I2C_GenerateStopCondition(I2Cx);
@@ -245,7 +245,7 @@ I2C_LL_Status I2C_LL_Write(I2C_LL_Handle *hi2c, uint8_t dev_addr, const uint8_t 
   }
 
   /* Ждем BTF: последний байт полностью передан */
-  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_BTF, hi2c->timeout);
+  status = I2C_LL_WaitFlag(I2Cx, LL_I2C_SR1_BTF, hi2c->timeout); /* BTF = Byte Transfer Finished */
 
   /* Формируем STOP condition — конец передачи */
   LL_I2C_GenerateStopCondition(I2Cx);
