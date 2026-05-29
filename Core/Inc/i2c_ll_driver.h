@@ -19,8 +19,9 @@ typedef enum
 
 typedef struct
 {
-  I2C_TypeDef *I2Cx;
-  uint32_t timeout;
+  I2C_TypeDef *I2Cx;      /* Какой I2C использовать: I2C1, I2C2 или I2C3 */
+  uint32_t clock_speed;   /* Скорость I2C в Гц: например 100000 = 100 kHz */
+  uint32_t timeout;       /* Таймаут ожидания флагов */
 } I2C_LL_Handle;
 
 I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c);
