@@ -21,7 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stm32f4xx_ll_bus.h"
 #include "ssd1306.h"
 
 /* USER CODE END Includes */
@@ -51,7 +50,6 @@ SSD1306_Handle oled;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,10 +87,9 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Выбираем, какой I2C будет использовать OLED */
+  /* Выбираем, какой I2C будет использовать OLED: I2C1, I2C2 или I2C3 */
   hi2c_oled.I2Cx = I2C1;
 
   /* Скорость I2C: 100000 Гц = 100 kHz */
@@ -101,7 +98,7 @@ int main(void)
   /* Таймаут ожидания флагов I2C */
   hi2c_oled.timeout = 100000U;
 
-  /* Инициализация I2C теперь выполняется внутри нашего драйвера */
+  /* Настройка выбранного I2C выполняется внутри нашего драйвера */
   if (I2C_LL_Init(&hi2c_oled) != I2C_LL_OK)
   {
     Error_Handler();
@@ -179,57 +176,51 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief I2C1 GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
-  /**I2C1 GPIO Configuration
-  PB6   ------> I2C1_SCL
-  PB7   ------> I2C1_SDA
-  */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_6|LL_GPIO_PIN_7;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_OPENDRAIN;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  GPIO_InitStruct.Alternate = LL_GPIO_AF_4;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* Clock I2C1 включается здесь для доступа к периферии,
-     а полная настройка I2C выполняется в I2C_LL_Init(). */
-  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C1);
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /* Configure GPIO pins : PB6 PB7 for I2C1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* Configure GPIO pins : PB10 PB11 for I2C2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* Configure GPIO pin : PC9 for I2C3 SDA */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C3;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /* Configure GPIO pin : PA8 for I2C3 SCL */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C3;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
