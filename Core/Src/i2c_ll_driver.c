@@ -8,26 +8,45 @@
 #define I2C_LL_DEFAULT_CLOCK_SPEED 100000U
 
 /*
- * Включение тактирования выбранного I2C.
- * Без включенного clock модуль I2C работать не будет.
+ * Проверка выбранного I2C.
+ * Драйвер поддерживает только I2C1, I2C2 и I2C3.
  */
-static void I2C_LL_EnableClock(I2C_TypeDef *I2Cx)
+static I2C_LL_Status I2C_LL_CheckInstance(I2C_TypeDef *I2Cx)
+{
+  if ((I2Cx == I2C1) || (I2Cx == I2C2) || (I2Cx == I2C3))
+  {
+    return I2C_LL_OK;
+  }
+
+  return I2C_LL_ERROR;
+}
+
+/*
+ * Включение тактирования выбранного I2C.
+ * GPIO здесь не настраиваются — они должны быть настроены заранее в MX_GPIO_Init().
+ */
+static I2C_LL_Status I2C_LL_EnableClock(I2C_TypeDef *I2Cx)
 {
   if (I2Cx == I2C1)
   {
     /* Включаем тактирование I2C1 на шине APB1 */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C1);
+    return I2C_LL_OK;
   }
   else if (I2Cx == I2C2)
   {
     /* Включаем тактирование I2C2 на шине APB1 */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C2);
+    return I2C_LL_OK;
   }
   else if (I2Cx == I2C3)
   {
     /* Включаем тактирование I2C3 на шине APB1 */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C3);
+    return I2C_LL_OK;
   }
+
+  return I2C_LL_ERROR;
 }
 
 /*
@@ -144,7 +163,7 @@ static I2C_LL_Status I2C_LL_WaitBusFree(I2C_TypeDef *I2Cx, uint32_t timeout)
 
 /*
  * Инициализация низкоуровневого I2C-драйвера.
- * Здесь выбирается конкретный I2C, скорость и включается сам модуль.
+ * GPIO не трогаем: пины должны быть настроены через IOC в MX_GPIO_Init().
  */
 I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c)
 {
@@ -152,6 +171,12 @@ I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c)
 
   /* Проверяем, что структура и выбранный I2C существуют */
   if ((hi2c == 0) || (hi2c->I2Cx == 0))
+  {
+    return I2C_LL_ERROR;
+  }
+
+  /* Проверяем, что выбран поддерживаемый модуль: I2C1, I2C2 или I2C3 */
+  if (I2C_LL_CheckInstance(hi2c->I2Cx) != I2C_LL_OK)
   {
     return I2C_LL_ERROR;
   }
@@ -169,10 +194,16 @@ I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c)
   }
 
   /* Включаем тактирование выбранного I2C */
-  I2C_LL_EnableClock(hi2c->I2Cx);
+  if (I2C_LL_EnableClock(hi2c->I2Cx) != I2C_LL_OK)
+  {
+    return I2C_LL_ERROR;
+  }
 
   /* Перед настройкой лучше выключить I2C */
   LL_I2C_Disable(hi2c->I2Cx);
+
+  /* Очищаем возможные старые ошибки перед новой настройкой */
+  I2C_LL_ClearErrors(hi2c->I2Cx);
 
   /* Отключаем второй адрес устройства. Для master-режима он не нужен */
   LL_I2C_DisableOwnAddress2(hi2c->I2Cx);
@@ -215,6 +246,12 @@ I2C_LL_Status I2C_LL_Write(I2C_LL_Handle *hi2c, uint8_t dev_addr, const uint8_t 
 
   /* Проверяем входные параметры */
   if ((hi2c == 0) || (hi2c->I2Cx == 0) || (data == 0))
+  {
+    return I2C_LL_ERROR;
+  }
+
+  /* Проверяем, что выбран поддерживаемый I2C */
+  if (I2C_LL_CheckInstance(hi2c->I2Cx) != I2C_LL_OK)
   {
     return I2C_LL_ERROR;
   }
@@ -300,6 +337,12 @@ I2C_LL_Status I2C_LL_Recover(I2C_LL_Handle *hi2c)
 
   /* Проверяем, что структура и I2C существуют */
   if ((hi2c == 0) || (hi2c->I2Cx == 0))
+  {
+    return I2C_LL_ERROR;
+  }
+
+  /* Проверяем, что выбран поддерживаемый I2C */
+  if (I2C_LL_CheckInstance(hi2c->I2Cx) != I2C_LL_OK)
   {
     return I2C_LL_ERROR;
   }
