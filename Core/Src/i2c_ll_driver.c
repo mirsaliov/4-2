@@ -4,6 +4,9 @@
 /* Таймаут по умолчанию, если пользователь не задал свой timeout */
 #define I2C_LL_DEFAULT_TIMEOUT 100000U
 
+/* Скорость I2C по умолчанию: 100 kHz */
+#define I2C_LL_DEFAULT_CLOCK_SPEED 100000U
+
 /*
  * Включение тактирования выбранного I2C.
  * Без включенного clock модуль I2C работать не будет.
@@ -141,10 +144,12 @@ static I2C_LL_Status I2C_LL_WaitBusFree(I2C_TypeDef *I2Cx, uint32_t timeout)
 
 /*
  * Инициализация низкоуровневого I2C-драйвера.
- * Здесь выбирается конкретный I2C и включается сам модуль.
+ * Здесь выбирается конкретный I2C, скорость и включается сам модуль.
  */
 I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c)
 {
+  LL_I2C_InitTypeDef I2C_InitStruct = {0};
+
   /* Проверяем, что структура и выбранный I2C существуют */
   if ((hi2c == 0) || (hi2c->I2Cx == 0))
   {
@@ -157,8 +162,40 @@ I2C_LL_Status I2C_LL_Init(I2C_LL_Handle *hi2c)
     hi2c->timeout = I2C_LL_DEFAULT_TIMEOUT;
   }
 
+  /* Если пользователь не задал скорость, ставим стандартные 100 kHz */
+  if (hi2c->clock_speed == 0U)
+  {
+    hi2c->clock_speed = I2C_LL_DEFAULT_CLOCK_SPEED;
+  }
+
   /* Включаем тактирование выбранного I2C */
   I2C_LL_EnableClock(hi2c->I2Cx);
+
+  /* Перед настройкой лучше выключить I2C */
+  LL_I2C_Disable(hi2c->I2Cx);
+
+  /* Отключаем второй адрес устройства. Для master-режима он не нужен */
+  LL_I2C_DisableOwnAddress2(hi2c->I2Cx);
+
+  /* Отключаем General Call. Это общий адрес I2C, в данном проекте не нужен */
+  LL_I2C_DisableGeneralCall(hi2c->I2Cx);
+
+  /* Разрешаем Clock Stretching */
+  LL_I2C_EnableClockStretching(hi2c->I2Cx);
+
+  /* Настройка параметров I2C внутри драйвера */
+  I2C_InitStruct.PeripheralMode = LL_I2C_MODE_I2C;
+  I2C_InitStruct.ClockSpeed = hi2c->clock_speed;
+  I2C_InitStruct.DutyCycle = LL_I2C_DUTYCYCLE_2;
+  I2C_InitStruct.OwnAddress1 = 0;
+  I2C_InitStruct.TypeAcknowledge = LL_I2C_ACK;
+  I2C_InitStruct.OwnAddrSize = LL_I2C_OWNADDRESS1_7BIT;
+
+  /* Записываем настройки из структуры в регистры выбранного I2C */
+  LL_I2C_Init(hi2c->I2Cx, &I2C_InitStruct);
+
+  /* Второй собственный адрес равен 0 и не используется */
+  LL_I2C_SetOwnAddress2(hi2c->I2Cx, 0);
 
   /* Включаем сам периферийный блок I2C */
   LL_I2C_Enable(hi2c->I2Cx);
