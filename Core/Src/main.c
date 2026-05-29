@@ -91,9 +91,17 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+
+  /* Выбираем, какой I2C будет использовать OLED */
   hi2c_oled.I2Cx = I2C1;
+
+  /* Скорость I2C: 100000 Гц = 100 kHz */
+  hi2c_oled.clock_speed = 100000U;
+
+  /* Таймаут ожидания флагов I2C */
   hi2c_oled.timeout = 100000U;
 
+  /* Инициализация I2C теперь выполняется внутри нашего драйвера */
   if (I2C_LL_Init(&hi2c_oled) != I2C_LL_OK)
   {
     Error_Handler();
@@ -171,7 +179,7 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief I2C1 Initialization Function
+  * @brief I2C1 GPIO Initialization Function
   * @param None
   * @retval None
   */
@@ -181,8 +189,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 0 */
 
   /* USER CODE END I2C1_Init 0 */
-
-  LL_I2C_InitTypeDef I2C_InitStruct = {0};
 
   LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
 
@@ -199,25 +205,14 @@ static void MX_I2C1_Init(void)
   GPIO_InitStruct.Alternate = LL_GPIO_AF_4;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /* Peripheral clock enable */
+  /* Clock I2C1 включается здесь для доступа к периферии,
+     а полная настройка I2C выполняется в I2C_LL_Init(). */
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C1);
 
   /* USER CODE BEGIN I2C1_Init 1 */
 
   /* USER CODE END I2C1_Init 1 */
-  /** I2C Initialization
-  */
-  LL_I2C_DisableOwnAddress2(I2C1);
-  LL_I2C_DisableGeneralCall(I2C1);
-  LL_I2C_EnableClockStretching(I2C1);
-  I2C_InitStruct.PeripheralMode = LL_I2C_MODE_I2C;
-  I2C_InitStruct.ClockSpeed = 100;
-  I2C_InitStruct.DutyCycle = LL_I2C_DUTYCYCLE_2;
-  I2C_InitStruct.OwnAddress1 = 0;
-  I2C_InitStruct.TypeAcknowledge = LL_I2C_ACK;
-  I2C_InitStruct.OwnAddrSize = LL_I2C_OWNADDRESS1_7BIT;
-  LL_I2C_Init(I2C1, &I2C_InitStruct);
-  LL_I2C_SetOwnAddress2(I2C1, 0);
+
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
@@ -273,4 +268,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
