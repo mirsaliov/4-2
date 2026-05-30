@@ -33,39 +33,8 @@ SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const 
 }
 
 /*
- * Очистка очереди команд.
- */
-void SSD1306_ClearCommands(SSD1306_Handle *display)
-{
-  if (display != 0)
-  {
-    display->command_count = 0U;
-  }
-}
-
-/*
- * Добавление одной команды в очередь.
- */
-SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command)
-{
-  if ((display == 0) || (command == 0))
-  {
-    return SSD1306_ERROR;
-  }
-
-  if (display->command_count >= SSD1306_COMMAND_QUEUE_SIZE)
-  {
-    return SSD1306_ERROR;
-  }
-
-  display->commands[display->command_count] = *command;
-  display->command_count++;
-
-  return SSD1306_OK;
-}
-
-/*
- * Выполнение одной команды.
+ * Выполнение одной пользовательской команды.
+ * Команда передается как структура SSD1306_Command.
  */
 SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command)
 {
@@ -85,19 +54,38 @@ SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Com
       return SSD1306_OK;
 
     case SSD1306_CMD_PIXEL:
-      SSD1306_DrawPixel(display, (uint8_t)command->x0, (uint8_t)command->y0, command->color);
+      SSD1306_DrawPixel(display,
+                        (uint8_t)command->x0,
+                        (uint8_t)command->y0,
+                        command->color);
       return SSD1306_OK;
 
     case SSD1306_CMD_LINE:
-      SSD1306_DrawLine(display, command->x0, command->y0, command->x1, command->y1, command->color);
+      SSD1306_DrawLine(display,
+                       command->x0,
+                       command->y0,
+                       command->x1,
+                       command->y1,
+                       command->color);
       return SSD1306_OK;
 
     case SSD1306_CMD_RECT:
-      SSD1306_DrawRect(display, (uint8_t)command->x0, (uint8_t)command->y0, command->width, command->height, command->color);
+      SSD1306_DrawRect(display,
+                       (uint8_t)command->x0,
+                       (uint8_t)command->y0,
+                       command->width,
+                       command->height,
+                       command->color);
       return SSD1306_OK;
 
     case SSD1306_CMD_BITMAP:
-      SSD1306_DrawBitmap(display, (uint8_t)command->x0, (uint8_t)command->y0, command->bitmap, command->width, command->height, command->color);
+      SSD1306_DrawBitmap(display,
+                         (uint8_t)command->x0,
+                         (uint8_t)command->y0,
+                         command->bitmap,
+                         command->width,
+                         command->height,
+                         command->color);
       return SSD1306_OK;
 
     case SSD1306_CMD_UPDATE:
@@ -109,32 +97,8 @@ SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Com
 }
 
 /*
- * Выполнение всех команд из внутренней очереди display->commands.
- */
-SSD1306_Status SSD1306_ExecuteCommands(SSD1306_Handle *display)
-{
-  uint8_t i;
-  SSD1306_Status status;
-
-  if (display == 0)
-  {
-    return SSD1306_ERROR;
-  }
-
-  for (i = 0U; i < display->command_count; i++)
-  {
-    status = SSD1306_ExecuteCommand(display, &display->commands[i]);
-    if (status != SSD1306_OK)
-    {
-      return status;
-    }
-  }
-
-  return SSD1306_OK;
-}
-
-/*
- * Выполнение массива команд без сохранения во внутреннюю очередь.
+ * Выполнение массива команд.
+ * В main.c пользователь создает SSD1306_Command commands[] и передает сюда.
  */
 SSD1306_Status SSD1306_ExecuteCommandList(SSD1306_Handle *display, const SSD1306_Command *commands, uint16_t count)
 {
