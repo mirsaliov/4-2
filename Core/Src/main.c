@@ -45,6 +45,14 @@
 I2C_LL_Handle hi2c_oled;
 SSD1306_Handle oled;
 
+SSD1306_Config oled_config =
+{
+  .I2Cx = I2C1,
+  .clock_speed = 100000U,
+  .timeout = 100000U,
+  .address = SSD1306_I2C_ADDR_7BIT
+};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,22 +97,7 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Выбираем, какой I2C будет использовать OLED: I2C1, I2C2 или I2C3 */
-  hi2c_oled.I2Cx = I2C1;
-
-  /* Скорость I2C: 100000 Гц = 100 kHz */
-  hi2c_oled.clock_speed = 100000U;
-
-  /* Таймаут ожидания флагов I2C */
-  hi2c_oled.timeout = 100000U;
-
-  /* Настройка выбранного I2C выполняется внутри нашего драйвера */
-  if (I2C_LL_Init(&hi2c_oled) != I2C_LL_OK)
-  {
-    Error_Handler();
-  }
-
-  if (SSD1306_Init(&oled, &hi2c_oled, SSD1306_I2C_ADDR_7BIT) != SSD1306_OK)
+  if (SSD1306_Begin(&oled, &hi2c_oled, &oled_config) != SSD1306_OK)
   {
     Error_Handler();
   }
