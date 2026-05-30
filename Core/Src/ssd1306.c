@@ -106,7 +106,6 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
   display->i2c = i2c;
   display->address = address;
   display->initialized = 0U;
-  display->command_count = 0U;
 
   if (display->address == 0U)
   {
