@@ -34,6 +34,18 @@ typedef enum
 } SSD1306_Status;
 
 /*
+ * Пользовательская конфигурация дисплея.
+ * В main.c пользователь выбирает только I2C, скорость, timeout и адрес дисплея.
+ */
+typedef struct
+{
+  I2C_TypeDef *I2Cx;      /* Какой I2C использовать: I2C1, I2C2 или I2C3 */
+  uint32_t clock_speed;   /* Скорость I2C в Гц, например 100000 = 100 kHz */
+  uint32_t timeout;       /* Таймаут ожидания флагов */
+  uint8_t address;        /* 7-битный адрес SSD1306, обычно 0x3C */
+} SSD1306_Config;
+
+/*
  * Главная структура дисплея.
  * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и флаг инициализации.
  */
@@ -44,6 +56,9 @@ typedef struct
   uint8_t buffer[SSD1306_BUFFER_SIZE];   /* Буфер изображения 128x64 */
   uint8_t initialized;                   /* 1 — дисплей инициализирован, 0 — нет */
 } SSD1306_Handle;
+
+/* Удобный пользовательский запуск: настраивает I2C и инициализирует SSD1306 */
+SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config);
 
 /* Инициализация дисплея SSD1306 */
 SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t address);
