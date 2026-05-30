@@ -19,9 +19,6 @@ extern "C" {
  */
 #define SSD1306_BUFFER_SIZE ((SSD1306_WIDTH * SSD1306_HEIGHT) / 8U)
 
-/* Максимальное количество команд в очереди */
-#define SSD1306_COMMAND_QUEUE_SIZE 16U
-
 /* 7-битный I2C адрес дисплея SSD1306. Чаще всего используется 0x3C */
 #define SSD1306_I2C_ADDR_7BIT 0x3CU
 
@@ -83,26 +80,21 @@ typedef struct
 
 /*
  * Главная структура дисплея.
- * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и очередь команд.
+ * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и флаг инициализации.
  */
 typedef struct
 {
-  I2C_LL_Handle *i2c;                              /* Через какой I2C работает дисплей */
-  uint8_t address;                                 /* 7-битный I2C адрес дисплея */
-  uint8_t buffer[SSD1306_BUFFER_SIZE];             /* Буфер изображения 128x64 */
-  uint8_t initialized;                             /* 1 — дисплей инициализирован, 0 — нет */
-  SSD1306_Command commands[SSD1306_COMMAND_QUEUE_SIZE]; /* Очередь команд */
-  uint8_t command_count;                           /* Количество команд в очереди */
+  I2C_LL_Handle *i2c;                    /* Через какой I2C работает дисплей */
+  uint8_t address;                       /* 7-битный I2C адрес дисплея */
+  uint8_t buffer[SSD1306_BUFFER_SIZE];   /* Буфер изображения 128x64 */
+  uint8_t initialized;                   /* 1 — дисплей инициализирован, 0 — нет */
 } SSD1306_Handle;
 
 /* Удобный пользовательский запуск: настраивает I2C и инициализирует SSD1306 */
 SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config);
 
-/* Работа с очередью команд */
-void SSD1306_ClearCommands(SSD1306_Handle *display);
-SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command);
+/* Выполнение одной команды или массива команд */
 SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command);
-SSD1306_Status SSD1306_ExecuteCommands(SSD1306_Handle *display);
 SSD1306_Status SSD1306_ExecuteCommandList(SSD1306_Handle *display, const SSD1306_Command *commands, uint16_t count);
 
 /* Инициализация дисплея SSD1306 */
