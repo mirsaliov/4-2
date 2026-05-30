@@ -19,6 +19,9 @@ extern "C" {
  */
 #define SSD1306_BUFFER_SIZE ((SSD1306_WIDTH * SSD1306_HEIGHT) / 8U)
 
+/* Максимальное количество команд в очереди */
+#define SSD1306_COMMAND_QUEUE_SIZE 16U
+
 /* 7-битный I2C адрес дисплея SSD1306. Чаще всего используется 0x3C */
 #define SSD1306_I2C_ADDR_7BIT 0x3CU
 
@@ -45,20 +48,94 @@ typedef struct
   uint8_t address;        /* 7-битный адрес SSD1306, обычно 0x3C */
 } SSD1306_Config;
 
+/* Тип команды для очереди команд */
+typedef enum
+{
+  SSD1306_CMD_CLEAR = 0,
+  SSD1306_CMD_FILL,
+  SSD1306_CMD_PIXEL,
+  SSD1306_CMD_LINE,
+  SSD1306_CMD_RECT,
+  SSD1306_CMD_UPDATE
+} SSD1306_CommandType;
+
+/* Параметры команды заливки */
+typedef struct
+{
+  uint8_t color;
+} SSD1306_FillCmd;
+
+/* Параметры команды рисования пикселя */
+typedef struct
+{
+  int16_t x;
+  int16_t y;
+  uint8_t color;
+} SSD1306_PixelCmd;
+
+/* Параметры команды рисования линии */
+typedef struct
+{
+  int16_t x0;
+  int16_t y0;
+  int16_t x1;
+  int16_t y1;
+  uint8_t color;
+} SSD1306_LineCmd;
+
+/* Параметры команды рисования прямоугольника */
+typedef struct
+{
+  int16_t x;
+  int16_t y;
+  uint8_t width;
+  uint8_t height;
+  uint8_t color;
+} SSD1306_RectCmd;
+
+/* Одна команда дисплея */
+typedef struct
+{
+  SSD1306_CommandType type;
+
+  union
+  {
+    SSD1306_FillCmd fill;
+    SSD1306_PixelCmd pixel;
+    SSD1306_LineCmd line;
+    SSD1306_RectCmd rect;
+  } data;
+} SSD1306_Command;
+
 /*
  * Главная структура дисплея.
- * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и флаг инициализации.
+ * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и очередь команд.
  */
 typedef struct
 {
-  I2C_LL_Handle *i2c;                    /* Через какой I2C работает дисплей */
-  uint8_t address;                       /* 7-битный I2C адрес дисплея */
-  uint8_t buffer[SSD1306_BUFFER_SIZE];   /* Буфер изображения 128x64 */
-  uint8_t initialized;                   /* 1 — дисплей инициализирован, 0 — нет */
+  I2C_LL_Handle *i2c;                              /* Через какой I2C работает дисплей */
+  uint8_t address;                                 /* 7-битный I2C адрес дисплея */
+  uint8_t buffer[SSD1306_BUFFER_SIZE];             /* Буфер изображения 128x64 */
+  uint8_t initialized;                             /* 1 — дисплей инициализирован, 0 — нет */
+  SSD1306_Command commands[SSD1306_COMMAND_QUEUE_SIZE]; /* Очередь команд */
+  uint8_t command_count;                           /* Количество команд в очереди */
 } SSD1306_Handle;
 
 /* Удобный пользовательский запуск: настраивает I2C и инициализирует SSD1306 */
 SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config);
+
+/* Очередь команд */
+void SSD1306_ClearCommands(SSD1306_Handle *display);
+SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command);
+SSD1306_Status SSD1306_ExecuteCommands(SSD1306_Handle *display);
+
+/* Удобные функции добавления команд в очередь */
+SSD1306_Status SSD1306_SetClearCmd(SSD1306_Handle *display);
+SSD1306_Status SSD1306_SetFillCmd(SSD1306_Handle *display, uint8_t color);
+SSD1306_Status SSD1306_SetPixelCmd(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t color);
+SSD1306_Status SSD1306_SetLineCmd(SSD1306_Handle *display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t color);
+SSD1306_Status SSD1306_SetRectCmd(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t width, uint8_t height, uint8_t color);
+SSD1306_Status SSD1306_SetUpdateCmd(SSD1306_Handle *display);
 
 /* Инициализация дисплея SSD1306 */
 SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t address);
