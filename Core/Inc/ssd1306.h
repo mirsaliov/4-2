@@ -48,63 +48,37 @@ typedef struct
   uint8_t address;        /* 7-битный адрес SSD1306, обычно 0x3C */
 } SSD1306_Config;
 
-/* Тип команды для очереди команд */
+/* Тип команды для пользователя */
 typedef enum
 {
-  SSD1306_CMD_CLEAR = 0,
-  SSD1306_CMD_FILL,
-  SSD1306_CMD_PIXEL,
-  SSD1306_CMD_LINE,
-  SSD1306_CMD_RECT,
-  SSD1306_CMD_UPDATE
+  SSD1306_CMD_CLEAR = 0,  /* Очистить буфер */
+  SSD1306_CMD_FILL,       /* Залить буфер цветом */
+  SSD1306_CMD_PIXEL,      /* Нарисовать пиксель */
+  SSD1306_CMD_LINE,       /* Нарисовать линию */
+  SSD1306_CMD_RECT,       /* Нарисовать прямоугольник */
+  SSD1306_CMD_BITMAP,     /* Нарисовать bitmap */
+  SSD1306_CMD_UPDATE      /* Отправить буфер на дисплей */
 } SSD1306_CommandType;
 
-/* Параметры команды заливки */
-typedef struct
-{
-  uint8_t color;
-} SSD1306_FillCmd;
-
-/* Параметры команды рисования пикселя */
-typedef struct
-{
-  int16_t x;
-  int16_t y;
-  uint8_t color;
-} SSD1306_PixelCmd;
-
-/* Параметры команды рисования линии */
-typedef struct
-{
-  int16_t x0;
-  int16_t y0;
-  int16_t x1;
-  int16_t y1;
-  uint8_t color;
-} SSD1306_LineCmd;
-
-/* Параметры команды рисования прямоугольника */
-typedef struct
-{
-  int16_t x;
-  int16_t y;
-  uint8_t width;
-  uint8_t height;
-  uint8_t color;
-} SSD1306_RectCmd;
-
-/* Одна команда дисплея */
+/*
+ * Универсальная структура команды.
+ * Пользователь выбирает type и заполняет только нужные поля.
+ * Например для SSD1306_CMD_LINE используются x0, y0, x1, y1 и color.
+ */
 typedef struct
 {
   SSD1306_CommandType type;
 
-  union
-  {
-    SSD1306_FillCmd fill;
-    SSD1306_PixelCmd pixel;
-    SSD1306_LineCmd line;
-    SSD1306_RectCmd rect;
-  } data;
+  int16_t x0;
+  int16_t y0;
+  int16_t x1;
+  int16_t y1;
+
+  uint8_t width;
+  uint8_t height;
+  uint8_t color;
+
+  const uint8_t *bitmap;
 } SSD1306_Command;
 
 /*
@@ -124,18 +98,12 @@ typedef struct
 /* Удобный пользовательский запуск: настраивает I2C и инициализирует SSD1306 */
 SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config);
 
-/* Очередь команд */
+/* Работа с очередью команд */
 void SSD1306_ClearCommands(SSD1306_Handle *display);
 SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command);
+SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command);
 SSD1306_Status SSD1306_ExecuteCommands(SSD1306_Handle *display);
-
-/* Удобные функции добавления команд в очередь */
-SSD1306_Status SSD1306_SetClearCmd(SSD1306_Handle *display);
-SSD1306_Status SSD1306_SetFillCmd(SSD1306_Handle *display, uint8_t color);
-SSD1306_Status SSD1306_SetPixelCmd(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t color);
-SSD1306_Status SSD1306_SetLineCmd(SSD1306_Handle *display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t color);
-SSD1306_Status SSD1306_SetRectCmd(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t width, uint8_t height, uint8_t color);
-SSD1306_Status SSD1306_SetUpdateCmd(SSD1306_Handle *display);
+SSD1306_Status SSD1306_ExecuteCommandList(SSD1306_Handle *display, const SSD1306_Command *commands, uint16_t count);
 
 /* Инициализация дисплея SSD1306 */
 SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t address);
