@@ -390,3 +390,214 @@ void SSD1306_DrawBitmap(SSD1306_Handle *display, uint8_t x, uint8_t y, const uin
     }
   }
 }
+SSD1306_Status SSD1306_Begin(SSD1306_Handle *display,
+                             I2C_LL_Handle *i2c,
+                             const SSD1306_Config *config)
+{
+  uint8_t address;
+
+  if ((display == 0) || (i2c == 0) || (config == 0))
+  {
+    return SSD1306_ERROR;
+  }
+
+  address = config->address;
+  if (address == 0U)
+  {
+    address = SSD1306_I2C_ADDR_7BIT;
+  }
+
+  i2c->I2Cx = config->I2Cx;
+  i2c->clock_speed = config->clock_speed;
+  i2c->timeout = config->timeout;
+
+  if (I2C_LL_Init(i2c) != I2C_LL_OK)
+  {
+    return SSD1306_ERROR;
+  }
+
+  if (SSD1306_Init(display, i2c, address) != SSD1306_OK)
+  {
+    return SSD1306_ERROR;
+  }
+
+  SSD1306_ClearCommands(display);
+
+  return SSD1306_OK;
+}
+
+void SSD1306_ClearCommands(SSD1306_Handle *display)
+{
+  if (display != 0)
+  {
+    display->command_count = 0U;
+  }
+}
+
+SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display,
+                                  const SSD1306_Command *command)
+{
+  if ((display == 0) || (command == 0))
+  {
+    return SSD1306_ERROR;
+  }
+
+  if (display->command_count >= SSD1306_COMMAND_QUEUE_SIZE)
+  {
+    return SSD1306_ERROR;
+  }
+
+  display->commands[display->command_count] = *command;
+  display->command_count++;
+
+  return SSD1306_OK;
+}
+
+SSD1306_Status SSD1306_ExecuteCommands(SSD1306_Handle *display)
+{
+  uint8_t i;
+  SSD1306_Command *cmd;
+  SSD1306_Status status;
+
+  if (display == 0)
+  {
+    return SSD1306_ERROR;
+  }
+
+  for (i = 0U; i < display->command_count; i++)
+  {
+    cmd = &display->commands[i];
+
+    switch (cmd->type)
+    {
+      case SSD1306_CMD_CLEAR:
+        SSD1306_Clear(display);
+        break;
+
+      case SSD1306_CMD_FILL:
+        SSD1306_Fill(display, cmd->data.fill.color);
+        break;
+
+      case SSD1306_CMD_PIXEL:
+        SSD1306_DrawPixel(display,
+                          (uint8_t)cmd->data.pixel.x,
+                          (uint8_t)cmd->data.pixel.y,
+                          cmd->data.pixel.color);
+        break;
+
+      case SSD1306_CMD_LINE:
+        SSD1306_DrawLine(display,
+                         cmd->data.line.x0,
+                         cmd->data.line.y0,
+                         cmd->data.line.x1,
+                         cmd->data.line.y1,
+                         cmd->data.line.color);
+        break;
+
+      case SSD1306_CMD_RECT:
+        SSD1306_DrawRect(display,
+                         (uint8_t)cmd->data.rect.x,
+                         (uint8_t)cmd->data.rect.y,
+                         cmd->data.rect.width,
+                         cmd->data.rect.height,
+                         cmd->data.rect.color);
+        break;
+
+      case SSD1306_CMD_UPDATE:
+        status = SSD1306_Update(display);
+        if (status != SSD1306_OK)
+        {
+          return status;
+        }
+        break;
+
+      default:
+        return SSD1306_ERROR;
+    }
+  }
+
+  SSD1306_ClearCommands(display);
+
+  return SSD1306_OK;
+}
+
+SSD1306_Status SSD1306_SetClearCmd(SSD1306_Handle *display)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_CLEAR;
+
+  return SSD1306_AddCommand(display, &item);
+}
+
+SSD1306_Status SSD1306_SetFillCmd(SSD1306_Handle *display, uint8_t color)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_FILL;
+  item.data.fill.color = color;
+
+  return SSD1306_AddCommand(display, &item);
+}
+
+SSD1306_Status SSD1306_SetPixelCmd(SSD1306_Handle *display,
+                                   int16_t x,
+                                   int16_t y,
+                                   uint8_t color)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_PIXEL;
+  item.data.pixel.x = x;
+  item.data.pixel.y = y;
+  item.data.pixel.color = color;
+
+  return SSD1306_AddCommand(display, &item);
+}
+
+SSD1306_Status SSD1306_SetLineCmd(SSD1306_Handle *display,
+                                  int16_t x0,
+                                  int16_t y0,
+                                  int16_t x1,
+                                  int16_t y1,
+                                  uint8_t color)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_LINE;
+  item.data.line.x0 = x0;
+  item.data.line.y0 = y0;
+  item.data.line.x1 = x1;
+  item.data.line.y1 = y1;
+  item.data.line.color = color;
+
+  return SSD1306_AddCommand(display, &item);
+}
+
+SSD1306_Status SSD1306_SetRectCmd(SSD1306_Handle *display,
+                                  int16_t x,
+                                  int16_t y,
+                                  uint8_t width,
+                                  uint8_t height,
+                                  uint8_t color)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_RECT;
+  item.data.rect.x = x;
+  item.data.rect.y = y;
+  item.data.rect.width = width;
+  item.data.rect.height = height;
+  item.data.rect.color = color;
+
+  return SSD1306_AddCommand(display, &item);
+}
+
+SSD1306_Status SSD1306_SetUpdateCmd(SSD1306_Handle *display)
+{
+  SSD1306_Command item = {0};
+
+  item.type = SSD1306_CMD_UPDATE;
+
+  return SSD1306_AddCommand(display, &item);
+}
