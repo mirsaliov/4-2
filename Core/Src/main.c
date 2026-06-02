@@ -167,11 +167,6 @@ int main(void)
     Error_Handler();
   }
 
-  if (SSD1306_ExecuteCommands(&oled) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -181,6 +176,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if ((SSD1306_HasCommands(&oled) != 0U) || (SSD1306_IsBusy(&oled) != 0U))
+    {
+      if (SSD1306_Handler(&oled) != SSD1306_OK)
+      {
+        Error_Handler();
+      }
+    }
   }
   /* USER CODE END 3 */
 }
