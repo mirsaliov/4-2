@@ -77,6 +77,89 @@ SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command
   return SSD1306_OK;
 }
 
+SSD1306_Status SSD1306_SetClearCommand(SSD1306_Handle *display)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_CLEAR;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetFillCommand(SSD1306_Handle *display, uint8_t color)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_FILL;
+  command.color = color;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetPixelCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t color)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_PIXEL;
+  command.x0 = x;
+  command.y0 = y;
+  command.color = color;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetLineCommand(SSD1306_Handle *display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t color)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_LINE;
+  command.x0 = x0;
+  command.y0 = y0;
+  command.x1 = x1;
+  command.y1 = y1;
+  command.color = color;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetRectCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t width, uint8_t height, uint8_t color)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_RECT;
+  command.x0 = x;
+  command.y0 = y;
+  command.width = width;
+  command.height = height;
+  command.color = color;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetBitmapCommand(SSD1306_Handle *display, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t width, uint8_t height, uint8_t color)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_BITMAP;
+  command.x0 = x;
+  command.y0 = y;
+  command.bitmap = bitmap;
+  command.width = width;
+  command.height = height;
+  command.color = color;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
+SSD1306_Status SSD1306_SetUpdateCommand(SSD1306_Handle *display)
+{
+  SSD1306_Command command = {0};
+
+  command.type = SSD1306_CMD_UPDATE;
+
+  return SSD1306_AddCommand(display, &command);
+}
+
 /*
  * Выполнение одной пользовательской команды.
  */
@@ -221,7 +304,6 @@ uint8_t SSD1306_HasCommands(SSD1306_Handle *display)
 
 /*
  * Выполнение массива команд через очередь и handler.
- * Это вспомогательная функция, чтобы можно было быстро выполнить список команд без while в main.c.
  */
 SSD1306_Status SSD1306_ExecuteCommandList(SSD1306_Handle *display, const SSD1306_Command *commands, uint16_t count)
 {
