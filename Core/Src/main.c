@@ -104,30 +104,11 @@ int main(void)
 
   SSD1306_ClearCommands(&oled);
 
-  if (SSD1306_SetClearCommand(&oled) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
-
-  if (SSD1306_SetPixelCommand(&oled, 10, 10, SSD1306_COLOR_WHITE) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
-
-  if (SSD1306_SetLineCommand(&oled, 0, 0, 127, 63, SSD1306_COLOR_WHITE) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
-
-  if (SSD1306_SetRectCommand(&oled, 20, 16, 50, 30, SSD1306_COLOR_WHITE) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
-
-  if (SSD1306_SetUpdateCommand(&oled) != SSD1306_OK)
-  {
-    Error_Handler();
-  }
+  SSD1306_SetClearCommand(&oled);
+  SSD1306_SetPixelCommand(&oled, 10, 10, SSD1306_COLOR_WHITE);
+  SSD1306_SetLineCommand(&oled, 0, 0, 127, 63, SSD1306_COLOR_WHITE);
+  SSD1306_SetRectCommand(&oled, 20, 16, 50, 30, SSD1306_COLOR_WHITE);
+  SSD1306_SetUpdateCommand(&oled);
 
   /* USER CODE END 2 */
 
@@ -140,10 +121,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
     if ((SSD1306_HasCommands(&oled) != 0U) || (SSD1306_IsBusy(&oled) != 0U))
     {
-      if (SSD1306_Handler(&oled) != SSD1306_OK)
-      {
-        Error_Handler();
-      }
+      SSD1306_Handler(&oled);
     }
   }
   /* USER CODE END 3 */
