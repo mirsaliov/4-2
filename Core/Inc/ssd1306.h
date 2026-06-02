@@ -19,6 +19,9 @@ extern "C" {
  */
 #define SSD1306_BUFFER_SIZE ((SSD1306_WIDTH * SSD1306_HEIGHT) / 8U)
 
+/* Размер очереди команд, как в примере с датчиком */
+#define SSD1306_COMMAND_QUEUE_SIZE 16U
+
 /* 7-битный I2C адрес дисплея SSD1306. Чаще всего используется 0x3C */
 #define SSD1306_I2C_ADDR_7BIT 0x3CU
 
@@ -29,9 +32,19 @@ extern "C" {
 /* Статус выполнения функций драйвера SSD1306 */
 typedef enum
 {
-  SSD1306_OK = 0,     /* Операция выполнена успешно */
-  SSD1306_ERROR       /* Ошибка при выполнении операции */
+  SSD1306_OK = 0,
+  SSD1306_ERROR
 } SSD1306_Status;
+
+/* Состояние верхнего уровня драйвера */
+typedef enum
+{
+  SSD1306_STATE_RESET = 0,
+  SSD1306_STATE_WAIT,
+  SSD1306_STATE_WORK,
+  SSD1306_STATE_READY,
+  SSD1306_STATE_ERROR
+} SSD1306_State;
 
 /*
  * Пользовательская конфигурация дисплея.
@@ -80,7 +93,7 @@ typedef struct
 
 /*
  * Главная структура дисплея.
- * В ней хранится указатель на I2C, адрес дисплея, видеобуфер и флаг инициализации.
+ * Здесь хранится состояние верхнего уровня и кольцевая очередь команд.
  */
 typedef struct
 {
@@ -88,10 +101,25 @@ typedef struct
   uint8_t address;                       /* 7-битный I2C адрес дисплея */
   uint8_t buffer[SSD1306_BUFFER_SIZE];   /* Буфер изображения 128x64 */
   uint8_t initialized;                   /* 1 — дисплей инициализирован, 0 — нет */
+
+  SSD1306_Command commands[SSD1306_COMMAND_QUEUE_SIZE];
+  SSD1306_Command current_command;
+  volatile uint8_t head;
+  volatile uint8_t tail;
+  volatile uint8_t count;
+  volatile uint8_t busy;
+  volatile SSD1306_State state;
 } SSD1306_Handle;
 
 /* Удобный пользовательский запуск: настраивает I2C и инициализирует SSD1306 */
 SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config);
+
+/* Верхний уровень команд, как в примере с датчиком */
+void SSD1306_ClearCommands(SSD1306_Handle *display);
+SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command);
+SSD1306_Status SSD1306_Handler(SSD1306_Handle *display);
+uint8_t SSD1306_IsBusy(SSD1306_Handle *display);
+uint8_t SSD1306_HasCommands(SSD1306_Handle *display);
 
 /* Выполнение одной команды или массива команд */
 SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command);
