@@ -72,8 +72,7 @@ typedef enum
 
 /*
  * Универсальная структура команды.
- * Пользователь выбирает type и заполняет только нужные поля.
- * Например для SSD1306_CMD_LINE используются x0, y0, x1, y1 и color.
+ * Обычно пользователь не создает ее вручную, а вызывает функции SSD1306_Set...Command().
  */
 typedef struct
 {
@@ -120,6 +119,15 @@ SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command
 SSD1306_Status SSD1306_Handler(SSD1306_Handle *display);
 uint8_t SSD1306_IsBusy(SSD1306_Handle *display);
 uint8_t SSD1306_HasCommands(SSD1306_Handle *display);
+
+/* Удобные функции добавления команд в очередь */
+SSD1306_Status SSD1306_SetClearCommand(SSD1306_Handle *display);
+SSD1306_Status SSD1306_SetFillCommand(SSD1306_Handle *display, uint8_t color);
+SSD1306_Status SSD1306_SetPixelCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t color);
+SSD1306_Status SSD1306_SetLineCommand(SSD1306_Handle *display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t color);
+SSD1306_Status SSD1306_SetRectCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t width, uint8_t height, uint8_t color);
+SSD1306_Status SSD1306_SetBitmapCommand(SSD1306_Handle *display, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t width, uint8_t height, uint8_t color);
+SSD1306_Status SSD1306_SetUpdateCommand(SSD1306_Handle *display);
 
 /* Выполнение одной команды или массива команд */
 SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command);
