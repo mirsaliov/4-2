@@ -53,44 +53,6 @@ SSD1306_Config oled_config =
   .address = SSD1306_I2C_ADDR_7BIT
 };
 
-SSD1306_Command clear_command =
-{
-  .type = SSD1306_CMD_CLEAR
-};
-
-SSD1306_Command pixel_command =
-{
-  .type = SSD1306_CMD_PIXEL,
-  .x0 = 10,
-  .y0 = 10,
-  .color = SSD1306_COLOR_WHITE
-};
-
-SSD1306_Command line_command =
-{
-  .type = SSD1306_CMD_LINE,
-  .x0 = 0,
-  .y0 = 0,
-  .x1 = 127,
-  .y1 = 63,
-  .color = SSD1306_COLOR_WHITE
-};
-
-SSD1306_Command rect_command =
-{
-  .type = SSD1306_CMD_RECT,
-  .x0 = 20,
-  .y0 = 16,
-  .width = 50,
-  .height = 30,
-  .color = SSD1306_COLOR_WHITE
-};
-
-SSD1306_Command update_command =
-{
-  .type = SSD1306_CMD_UPDATE
-};
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,27 +104,27 @@ int main(void)
 
   SSD1306_ClearCommands(&oled);
 
-  if (SSD1306_AddCommand(&oled, &clear_command) != SSD1306_OK)
+  if (SSD1306_SetClearCommand(&oled) != SSD1306_OK)
   {
     Error_Handler();
   }
 
-  if (SSD1306_AddCommand(&oled, &pixel_command) != SSD1306_OK)
+  if (SSD1306_SetPixelCommand(&oled, 10, 10, SSD1306_COLOR_WHITE) != SSD1306_OK)
   {
     Error_Handler();
   }
 
-  if (SSD1306_AddCommand(&oled, &line_command) != SSD1306_OK)
+  if (SSD1306_SetLineCommand(&oled, 0, 0, 127, 63, SSD1306_COLOR_WHITE) != SSD1306_OK)
   {
     Error_Handler();
   }
 
-  if (SSD1306_AddCommand(&oled, &rect_command) != SSD1306_OK)
+  if (SSD1306_SetRectCommand(&oled, 20, 16, 50, 30, SSD1306_COLOR_WHITE) != SSD1306_OK)
   {
     Error_Handler();
   }
 
-  if (SSD1306_AddCommand(&oled, &update_command) != SSD1306_OK)
+  if (SSD1306_SetUpdateCommand(&oled) != SSD1306_OK)
   {
     Error_Handler();
   }
