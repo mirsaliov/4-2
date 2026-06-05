@@ -53,6 +53,26 @@ SSD1306_Config oled_config =
   .address = SSD1306_I2C_ADDR_7BIT
 };
 
+const uint8_t test_bitmap_16x16[] =
+{
+  0x00, 0x00,
+  0x18, 0x18,
+  0x3C, 0x3C,
+  0x7E, 0x7E,
+  0xFF, 0xFF,
+  0xFF, 0xFF,
+  0xDB, 0xDB,
+  0xFF, 0xFF,
+  0xFF, 0xFF,
+  0xC3, 0xC3,
+  0xE7, 0xE7,
+  0x7E, 0x7E,
+  0x3C, 0x3C,
+  0x18, 0x18,
+  0x00, 0x00,
+  0x00, 0x00
+};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,6 +128,7 @@ int main(void)
   SSD1306_SetPixelCommand(&oled, 10, 10, SSD1306_COLOR_WHITE);
   SSD1306_SetLineCommand(&oled, 0, 0, 127, 63, SSD1306_COLOR_WHITE);
   SSD1306_SetRectCommand(&oled, 20, 16, 50, 30, SSD1306_COLOR_WHITE);
+  //SSD1306_SetBitmapCommand(&oled, 56, 24, test_bitmap_16x16, 16, 16, SSD1306_COLOR_WHITE);
   SSD1306_SetUpdateCommand(&oled);
 
   /* USER CODE END 2 */
