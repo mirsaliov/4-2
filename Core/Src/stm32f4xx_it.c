@@ -25,6 +25,38 @@
 #include "i2c_ll_driver.h"
 /* USER CODE END Includes */
 
+/*
+ * Файл stm32f4xx_it.c
+ * -------------------
+ * Это файл обработчиков прерываний STM32.
+ *
+ * Для проекта OLED здесь важны только обработчики I2C:
+ *
+ *   I2C1_EV_IRQHandler()
+ *   I2C1_ER_IRQHandler()
+ *   I2C2_EV_IRQHandler()
+ *   I2C2_ER_IRQHandler()
+ *   I2C3_EV_IRQHandler()
+ *   I2C3_ER_IRQHandler()
+ *
+ * EV interrupt — это нормальные события I2C:
+ *   SB   — START сформирован;
+ *   ADDR — адрес отправлен и подтверждён;
+ *   TXE  — регистр данных пустой, можно отправлять следующий байт;
+ *   BTF  — байт полностью передан.
+ *
+ * ER interrupt — это ошибки I2C:
+ *   AF      — slave не ответил ACK;
+ *   BERR    — ошибка шины;
+ *   ARLO    — потеря арбитража;
+ *   OVR     — overrun/underrun;
+ *   TIMEOUT — таймаут.
+ *
+ * Здесь НЕ пишется сама логика передачи.
+ * Эти функции только перенаправляют аппаратное прерывание
+ * в наш драйвер i2c_ll_driver.c.
+ */
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
 
