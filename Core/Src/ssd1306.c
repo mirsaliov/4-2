@@ -28,7 +28,10 @@ static SSD1306_Status SSD1306_WriteCommand(SSD1306_Handle *display, uint8_t comm
 {
   uint8_t data[2];
 
+  /* data[0] говорит SSD1306, что дальше идёт команда */
   data[0] = SSD1306_CONTROL_COMMAND;
+
+  /* data[1] — сама команда SSD1306 */
   data[1] = command;
 
   if (I2C_LL_Write(display->i2c, display->address, data, 2U) != I2C_LL_OK)
@@ -104,6 +107,7 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
     return SSD1306_ERROR;
   }
 
+  /* Очищаем программные буферы дисплея */
   memset(display->buffer, 0x00, SSD1306_BUFFER_SIZE);
   memset(display->tx_buffer, 0x00, SSD1306_TX_BUFFER_SIZE);
 
@@ -118,7 +122,8 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
 
   /*
    * Если пользователь выбрал interrupt-режим, инициализацию всё равно делаем polling.
-   * После инициализации возвращаем выбранный пользователем режим обратно.
+   * Причина: init_commands и маленькие массивы команд должны отправиться сразу,
+   * без ожидания завершения в фоне.
    */
   saved_mode = i2c->mode;
   i2c->mode = I2C_LL_MODE_POLLING;
@@ -131,14 +136,17 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
 
   display->initialized = 1U;
 
+  /* После инициализации очищаем экран */
   SSD1306_Clear(display);
 
+  /* Первое обновление тоже выполняется в polling, потому что mode временно polling */
   if (SSD1306_Update(display) != SSD1306_OK)
   {
     i2c->mode = saved_mode;
     return SSD1306_ERROR;
   }
 
+  /* Возвращаем режим, который выбрал пользователь в main.c */
   i2c->mode = saved_mode;
 
   return SSD1306_OK;
@@ -191,8 +199,15 @@ SSD1306_Status SSD1306_Update(SSD1306_Handle *display)
   if (display->i2c->mode == I2C_LL_MODE_INTERRUPT)
   {
     /*
-     * В interrupt-режиме сначала задаём область GDDRAM блокирующими командами.
-     * Потом запускаем одну неблокирующую передачу 1025 байт: 0x40 + buffer[1024].
+     * В interrupt-режиме нельзя передавать локальный массив data[],
+     * потому что функция быстро закончится, а I2C ещё будет отправлять байты.
+     * Поэтому используем постоянный display->tx_buffer[].
+     */
+
+    /*
+     * Сначала задаём область GDDRAM: колонки 0..127 и страницы 0..7.
+     * Эти короткие команды отправляем polling-режимом, чтобы они точно успели уйти
+     * до запуска большой interrupt-передачи изображения.
      */
     saved_mode = display->i2c->mode;
     display->i2c->mode = I2C_LL_MODE_POLLING;
@@ -228,11 +243,16 @@ SSD1306_Status SSD1306_Update(SSD1306_Handle *display)
       return SSD1306_ERROR;
     }
 
+    /* Возвращаем interrupt-режим перед запуском большой передачи */
     display->i2c->mode = saved_mode;
 
+    /* Первый байт 0x40 говорит SSD1306, что дальше идут данные экрана */
     display->tx_buffer[0] = SSD1306_CONTROL_DATA;
+
+    /* Копируем 1024 байта видеобуфера после control byte */
     memcpy(&display->tx_buffer[1], display->buffer, SSD1306_BUFFER_SIZE);
 
+    /* Запускаем передачу 1025 байт. В interrupt-режиме функция вернёт I2C_LL_BUSY */
     status = I2C_LL_Write(display->i2c, display->address, display->tx_buffer, SSD1306_TX_BUFFER_SIZE);
     if ((status != I2C_LL_OK) && (status != I2C_LL_BUSY))
     {
@@ -242,23 +262,31 @@ SSD1306_Status SSD1306_Update(SSD1306_Handle *display)
     return SSD1306_OK;
   }
 
+  /*
+   * Polling-режим: старый простой вариант.
+   * Экран отправляется по страницам: 8 страниц по 128 байт.
+   */
   for (page = 0U; page < SSD1306_PAGE_COUNT; page++)
   {
+    /* Выбираем текущую страницу 0..7 */
     if (SSD1306_WriteCommand(display, (uint8_t)(0xB0U + page)) != SSD1306_OK)
     {
       return SSD1306_ERROR;
     }
 
+    /* Младшая часть адреса колонки = 0 */
     if (SSD1306_WriteCommand(display, 0x00U) != SSD1306_OK)
     {
       return SSD1306_ERROR;
     }
 
+    /* Старшая часть адреса колонки = 0 */
     if (SSD1306_WriteCommand(display, 0x10U) != SSD1306_OK)
     {
       return SSD1306_ERROR;
     }
 
+    /* data[0] = 0x40, дальше 128 байт одной страницы */
     data[0] = SSD1306_CONTROL_DATA;
     memcpy(&data[1], &display->buffer[SSD1306_WIDTH * page], SSD1306_WIDTH);
 
@@ -285,7 +313,13 @@ void SSD1306_DrawPixel(SSD1306_Handle *display, uint8_t x, uint8_t y, uint8_t co
     return;
   }
 
+  /*
+   * SSD1306 хранит экран страницами по 8 пикселей по высоте.
+   * index — номер байта в buffer[], где лежит нужный пиксель.
+   */
   index = (uint16_t)x + (uint16_t)(y / 8U) * SSD1306_WIDTH;
+
+  /* mask выбирает конкретный бит внутри байта */
   mask = (uint8_t)(1U << (y % 8U));
 
   if (color == SSD1306_COLOR_BLACK)
@@ -385,10 +419,16 @@ void SSD1306_DrawBitmap(SSD1306_Handle *display, uint8_t x, uint8_t y, const uin
   {
     for (bx = 0U; bx < width; bx++)
     {
+      /* Номер пикселя внутри bitmap */
       bit_index = (uint16_t)by * width + bx;
+
+      /* В одном байте 8 пикселей */
       byte_index = bit_index / 8U;
+
+      /* Маска для выбора нужного бита внутри байта */
       bit_mask = (uint8_t)(0x80U >> (bit_index % 8U));
 
+      /* Если бит картинки равен 1, рисуем пиксель в buffer[] */
       if ((bitmap[byte_index] & bit_mask) != 0U)
       {
         SSD1306_DrawPixel(display, (uint8_t)(x + bx), (uint8_t)(y + by), color);
