@@ -50,7 +50,9 @@ SSD1306_Config oled_config =
   .I2Cx = I2C1,
   .clock_speed = 100000U,
   .timeout = 100000U,
-  .address = SSD1306_I2C_ADDR_7BIT
+  .address = SSD1306_I2C_ADDR_7BIT,
+  .mode = I2C_LL_MODE_POLLING
+  /* .mode = I2C_LL_MODE_INTERRUPT */
 };
 
 const uint8_t test_bitmap_16x16[] =
@@ -140,10 +142,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if (SSD1306_HasCommands(&oled) != 0U)
-    {
-      SSD1306_Handler(&oled);
-    }
+    SSD1306_Handler(&oled);
   }
   /* USER CODE END 3 */
 }
