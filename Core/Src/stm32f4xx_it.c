@@ -201,31 +201,44 @@ void SysTick_Handler(void)
 
 /* USER CODE BEGIN 1 */
 
+/*
+ * I2C1 event interrupt.
+ * Сюда попадают события I2C1: SB, ADDR, TXE, BTF.
+ * Внутри уже работает наш низкоуровневый драйвер I2C_LL_EV_IRQHandler().
+ */
 void I2C1_EV_IRQHandler(void)
 {
   I2C_LL_EV_IRQHandler(I2C1);
 }
 
+/*
+ * I2C1 error interrupt.
+ * Сюда попадают ошибки I2C1: AF, BERR, ARLO, OVR, TIMEOUT.
+ */
 void I2C1_ER_IRQHandler(void)
 {
   I2C_LL_ER_IRQHandler(I2C1);
 }
 
+/* I2C2 event interrupt: события SB, ADDR, TXE, BTF */
 void I2C2_EV_IRQHandler(void)
 {
   I2C_LL_EV_IRQHandler(I2C2);
 }
 
+/* I2C2 error interrupt: ошибки AF, BERR, ARLO, OVR, TIMEOUT */
 void I2C2_ER_IRQHandler(void)
 {
   I2C_LL_ER_IRQHandler(I2C2);
 }
 
+/* I2C3 event interrupt: события SB, ADDR, TXE, BTF */
 void I2C3_EV_IRQHandler(void)
 {
   I2C_LL_EV_IRQHandler(I2C3);
 }
 
+/* I2C3 error interrupt: ошибки AF, BERR, ARLO, OVR, TIMEOUT */
 void I2C3_ER_IRQHandler(void)
 {
   I2C_LL_ER_IRQHandler(I2C3);
