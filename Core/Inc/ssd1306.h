@@ -11,6 +11,7 @@ extern "C" {
 #define SSD1306_WIDTH 128U
 #define SSD1306_HEIGHT 64U
 #define SSD1306_BUFFER_SIZE ((SSD1306_WIDTH * SSD1306_HEIGHT) / 8U)
+#define SSD1306_TX_BUFFER_SIZE (SSD1306_BUFFER_SIZE + 1U)
 #define SSD1306_COMMAND_QUEUE_SIZE 16U
 
 #define SSD1306_I2C_ADDR_7BIT 0x3CU
@@ -37,6 +38,7 @@ typedef struct
   uint32_t clock_speed;
   uint32_t timeout;
   uint8_t address;
+  I2C_LL_Mode mode;
 } SSD1306_Config;
 
 typedef enum
@@ -71,6 +73,7 @@ typedef struct
   I2C_LL_Handle *i2c;
   uint8_t address;
   uint8_t buffer[SSD1306_BUFFER_SIZE];
+  uint8_t tx_buffer[SSD1306_TX_BUFFER_SIZE];
   uint8_t initialized;
 
   SSD1306_Command commands[SSD1306_COMMAND_QUEUE_SIZE];
