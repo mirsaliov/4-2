@@ -466,6 +466,17 @@ void I2C_LL_EV_IRQHandler(I2C_TypeDef *I2Cx)
   {
     LL_I2C_TransmitData8(I2Cx, hi2c->tx_buffer[hi2c->tx_index]);
     hi2c->tx_index++;
+
+    /*
+     * Если загрузили последний байт, выключаем IT_BUF.
+     * Иначе TXE будет вызывать пустые прерывания, пока не появится BTF.
+     * IT_EVT оставляем включённым — он поймает BTF для формирования STOP.
+     */
+    if (hi2c->tx_index >= hi2c->tx_size)
+    {
+      LL_I2C_DisableIT_BUF(I2Cx);
+    }
+
     return;
   }
 
