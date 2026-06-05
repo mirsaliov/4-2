@@ -48,9 +48,9 @@ I2C_LL_Handle hi2c_oled;
 SSD1306_Handle oled;
 
 /*
- * Флаг нужен только для polling-режима.
- * В polling нельзя выполнять долгий SSD1306_Update() прямо внутри TIM6 interrupt,
- * поэтому TIM6 ставит флаг, а Handler вызывается в while(1).
+ * Флаг от TIM6.
+ * В прерывании таймера ставим 1,
+ * а в while(1) по этому флагу вызываем SSD1306_Handler().
  */
 volatile uint8_t oled_timer_flag = 0U;
 
@@ -69,10 +69,10 @@ SSD1306_Config oled_config =
   .timeout = 100000U,
   .address = SSD1306_I2C_ADDR_7BIT,
 
-  /* Блокирующий режим: TIM6 ставит флаг, Handler вызывается в while(1) */
+  /* Блокирующий режим: функция ждёт окончания передачи */
   .mode = I2C_LL_MODE_POLLING
 
-  /* Неблокирующий режим: TIM6 напрямую вызывает Handler */
+  /* Неблокирующий режим: передача идёт через I2C-прерывания */
   /* .mode = I2C_LL_MODE_INTERRUPT */
 };
 
@@ -166,7 +166,7 @@ int main(void)
   /* UPDATE обязательно нужен, чтобы buffer[] реально отправился на OLED */
   SSD1306_SetUpdateCommand(&oled);
 
-  /* Запускаем TIM6. Дальше поведение зависит от oled_config.mode */
+  /* Запускаем TIM6. Он будет периодически ставить oled_timer_flag = 1 */
   HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
@@ -177,18 +177,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /*
-     * Polling-режим:
-     * TIM6 только ставит oled_timer_flag = 1,
-     * а Handler вызывается здесь, в основном цикле.
-     */
-    if (oled_config.mode == I2C_LL_MODE_POLLING)
+    if (oled_timer_flag != 0U)
     {
-      if (oled_timer_flag != 0U)
-      {
-        oled_timer_flag = 0U;
-        SSD1306_Handler(&oled);
-      }
+      oled_timer_flag = 0U;
+
+      /*
+       * Handler вызывается по флагу от таймера.
+       * В polling-режиме он может выполнить команду полностью.
+       * В interrupt-режиме, если I2C занят, он сразу выйдет и не будет ждать.
+       */
+      SSD1306_Handler(&oled);
     }
   }
   /* USER CODE END 3 */
@@ -329,24 +327,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6)
   {
-    if (oled_config.mode == I2C_LL_MODE_INTERRUPT)
-    {
-      /*
-       * Interrupt-режим:
-       * Handler вызывается прямо из TIM6 interrupt.
-       * Если I2C занят, Handler сразу выйдет и ничего не будет ждать.
-       */
-      SSD1306_Handler(&oled);
-    }
-    else
-    {
-      /*
-       * Polling-режим:
-       * Внутри Handler может быть долгая I2C-передача,
-       * поэтому в прерывании только ставим флаг.
-       */
-      oled_timer_flag = 1U;
-    }
+    /* TIM6 сработал: разрешаем один вызов SSD1306_Handler() в while(1) */
+    oled_timer_flag = 1U;
   }
 }
 /* USER CODE END 4 */
