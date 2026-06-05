@@ -69,7 +69,8 @@ static int16_t SSD1306_Abs(int16_t value)
 
 /*
  * Инициализация дисплея SSD1306.
- * Здесь задаются основные режимы работы контроллера дисплея.
+ * Инициализацию специально выполняем в polling-режиме,
+ * чтобы дисплей точно был настроен до начала основной работы.
  */
 SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t address)
 {
@@ -96,12 +97,15 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
     0xAF        /* Display ON */
   };
 
+  I2C_LL_Mode saved_mode;
+
   if ((display == 0) || (i2c == 0))
   {
     return SSD1306_ERROR;
   }
 
   memset(display->buffer, 0x00, SSD1306_BUFFER_SIZE);
+  memset(display->tx_buffer, 0x00, SSD1306_TX_BUFFER_SIZE);
 
   display->i2c = i2c;
   display->address = address;
@@ -112,15 +116,32 @@ SSD1306_Status SSD1306_Init(SSD1306_Handle *display, I2C_LL_Handle *i2c, uint8_t
     display->address = SSD1306_I2C_ADDR_7BIT;
   }
 
+  /*
+   * Если пользователь выбрал interrupt-режим, инициализацию всё равно делаем polling.
+   * После инициализации возвращаем выбранный пользователем режим обратно.
+   */
+  saved_mode = i2c->mode;
+  i2c->mode = I2C_LL_MODE_POLLING;
+
   if (SSD1306_WriteCommandList(display, init_commands, (uint16_t)sizeof(init_commands)) != SSD1306_OK)
   {
+    i2c->mode = saved_mode;
     return SSD1306_ERROR;
   }
 
   display->initialized = 1U;
 
   SSD1306_Clear(display);
-  return SSD1306_Update(display);
+
+  if (SSD1306_Update(display) != SSD1306_OK)
+  {
+    i2c->mode = saved_mode;
+    return SSD1306_ERROR;
+  }
+
+  i2c->mode = saved_mode;
+
+  return SSD1306_OK;
 }
 
 /*
@@ -152,16 +173,73 @@ void SSD1306_Fill(SSD1306_Handle *display, uint8_t color)
 
 /*
  * Обновление дисплея.
- * Функция отправляет весь буфер 1024 байта из STM32 в GDDRAM дисплея.
+ * Polling: отправляет буфер страницами и ждёт завершения.
+ * Interrupt: настраивает адреса polling-командами, потом запускает одну передачу tx_buffer.
  */
 SSD1306_Status SSD1306_Update(SSD1306_Handle *display)
 {
   uint8_t page;
   uint8_t data[SSD1306_WIDTH + 1U];
+  I2C_LL_Status status;
+  I2C_LL_Mode saved_mode;
 
   if ((display == 0) || (display->i2c == 0))
   {
     return SSD1306_ERROR;
+  }
+
+  if (display->i2c->mode == I2C_LL_MODE_INTERRUPT)
+  {
+    /*
+     * В interrupt-режиме сначала задаём область GDDRAM блокирующими командами.
+     * Потом запускаем одну неблокирующую передачу 1025 байт: 0x40 + buffer[1024].
+     */
+    saved_mode = display->i2c->mode;
+    display->i2c->mode = I2C_LL_MODE_POLLING;
+
+    if (SSD1306_WriteCommand(display, 0x21U) != SSD1306_OK) /* Set Column Address */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+    if (SSD1306_WriteCommand(display, 0x00U) != SSD1306_OK) /* Column start = 0 */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+    if (SSD1306_WriteCommand(display, 0x7FU) != SSD1306_OK) /* Column end = 127 */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+    if (SSD1306_WriteCommand(display, 0x22U) != SSD1306_OK) /* Set Page Address */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+    if (SSD1306_WriteCommand(display, 0x00U) != SSD1306_OK) /* Page start = 0 */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+    if (SSD1306_WriteCommand(display, 0x07U) != SSD1306_OK) /* Page end = 7 */
+    {
+      display->i2c->mode = saved_mode;
+      return SSD1306_ERROR;
+    }
+
+    display->i2c->mode = saved_mode;
+
+    display->tx_buffer[0] = SSD1306_CONTROL_DATA;
+    memcpy(&display->tx_buffer[1], display->buffer, SSD1306_BUFFER_SIZE);
+
+    status = I2C_LL_Write(display->i2c, display->address, display->tx_buffer, SSD1306_TX_BUFFER_SIZE);
+    if ((status != I2C_LL_OK) && (status != I2C_LL_BUSY))
+    {
+      return SSD1306_ERROR;
+    }
+
+    return SSD1306_OK;
   }
 
   for (page = 0U; page < SSD1306_PAGE_COUNT; page++)
