@@ -22,6 +22,7 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "i2c_ll_driver.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -200,5 +201,34 @@ void SysTick_Handler(void)
 
 /* USER CODE BEGIN 1 */
 
-/* USER CODE END 1 */
+void I2C1_EV_IRQHandler(void)
+{
+  I2C_LL_EV_IRQHandler(I2C1);
+}
 
+void I2C1_ER_IRQHandler(void)
+{
+  I2C_LL_ER_IRQHandler(I2C1);
+}
+
+void I2C2_EV_IRQHandler(void)
+{
+  I2C_LL_EV_IRQHandler(I2C2);
+}
+
+void I2C2_ER_IRQHandler(void)
+{
+  I2C_LL_ER_IRQHandler(I2C2);
+}
+
+void I2C3_EV_IRQHandler(void)
+{
+  I2C_LL_EV_IRQHandler(I2C3);
+}
+
+void I2C3_ER_IRQHandler(void)
+{
+  I2C_LL_ER_IRQHandler(I2C3);
+}
+
+/* USER CODE END 1 */
