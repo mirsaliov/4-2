@@ -3,9 +3,10 @@
 /*
  * Верхний уровень запуска дисплея.
  * Пользователь передает структуру config, а функция сама:
- * 1) настраивает I2C-драйвер;
- * 2) инициализирует SSD1306;
- * 3) подготавливает очередь команд.
+ * 1) переносит настройки в I2C-драйвер;
+ * 2) инициализирует I2C;
+ * 3) инициализирует SSD1306;
+ * 4) подготавливает очередь команд.
  */
 SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const SSD1306_Config *config)
 {
@@ -16,17 +17,20 @@ SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const 
     return SSD1306_ERROR;
   }
 
+  /* Если пользователь не указал адрес, используем стандартный 0x3C */
   address = config->address;
   if (address == 0U)
   {
     address = SSD1306_I2C_ADDR_7BIT;
   }
 
+  /* Переносим настройки из OLED-конфига в нижний I2C-драйвер */
   i2c->I2Cx = config->I2Cx;
   i2c->clock_speed = config->clock_speed;
   i2c->timeout = config->timeout;
   i2c->mode = config->mode;
 
+  /* Настраиваем выбранный I2C */
   if (I2C_LL_Init(i2c) != I2C_LL_OK)
   {
     return SSD1306_ERROR;
@@ -38,22 +42,33 @@ SSD1306_Status SSD1306_Begin(SSD1306_Handle *display, I2C_LL_Handle *i2c, const 
     return SSD1306_ERROR;
   }
 
+  /* После запуска очередь команд должна быть пустой */
   SSD1306_ClearCommands(display);
   display->state = SSD1306_STATE_WAIT;
 
   return SSD1306_OK;
 }
 
+/* Очистка очереди пользовательских команд */
 void SSD1306_ClearCommands(SSD1306_Handle *display)
 {
   if (display != 0)
   {
+    /* head — индекс команды, которую будем выполнять следующей */
     display->head = 0U;
+
+    /* count — сколько команд сейчас находится в очереди */
     display->count = 0U;
+
+    /* WAIT — обработчик ждёт новую команду */
     display->state = SSD1306_STATE_WAIT;
   }
 }
 
+/*
+ * Добавление команды в очередь.
+ * command копируется в массив display->commands[].
+ */
 SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command *command)
 {
   uint8_t index;
@@ -63,18 +78,28 @@ SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command
     return SSD1306_ERROR;
   }
 
+  /* Если очередь заполнена, новую команду добавить нельзя */
   if (display->count >= SSD1306_COMMAND_QUEUE_SIZE)
   {
     return SSD1306_ERROR;
   }
 
+  /*
+   * В этой упрощённой очереди нет tail.
+   * Новая команда кладётся в позицию: head + count.
+   */
   index = (uint8_t)(display->head + display->count);
+
+  /* Если дошли до конца массива, переносимся в начало */
   if (index >= SSD1306_COMMAND_QUEUE_SIZE)
   {
     index = (uint8_t)(index - SSD1306_COMMAND_QUEUE_SIZE);
   }
 
+  /* Копируем команду в очередь */
   display->commands[index] = *command;
+
+  /* Команд в очереди стало больше */
   display->count++;
 
   return SSD1306_OK;
@@ -163,6 +188,10 @@ SSD1306_Status SSD1306_SetUpdateCommand(SSD1306_Handle *display)
   return SSD1306_AddCommand(display, &command);
 }
 
+/*
+ * Выполнение одной команды.
+ * switch смотрит на command->type и вызывает нужную функцию нижнего уровня SSD1306.
+ */
 SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Command *command)
 {
   if ((display == 0) || (command == 0))
@@ -197,6 +226,7 @@ SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Com
       return SSD1306_OK;
 
     case SSD1306_CMD_UPDATE:
+      /* В polling режиме Update дождётся конца передачи, в interrupt режиме только запустит её */
       return SSD1306_Update(display);
 
     default:
@@ -204,6 +234,10 @@ SSD1306_Status SSD1306_ExecuteCommand(SSD1306_Handle *display, const SSD1306_Com
   }
 }
 
+/*
+ * Главный обработчик очереди команд.
+ * Его вызывает main.c по флагу от TIM6.
+ */
 SSD1306_Status SSD1306_Handler(SSD1306_Handle *display)
 {
   SSD1306_Status status;
@@ -213,12 +247,17 @@ SSD1306_Status SSD1306_Handler(SSD1306_Handle *display)
     return SSD1306_ERROR;
   }
 
-  /* Неблокирующая логика: если I2C занят interrupt-передачей, сразу выходим */
+  /*
+   * Неблокирующая логика для interrupt-режима.
+   * Если I2C сейчас занят передачей, Handler ничего не ждёт,
+   * а сразу выходит. Следующий вызов будет позже по TIM6.
+   */
   if (I2C_LL_IsBusy(display->i2c) != 0U)
   {
     return SSD1306_OK;
   }
 
+  /* Если нижний I2C-драйвер сообщил ошибку, переводим OLED в ERROR */
   if (I2C_LL_GetStatus(display->i2c) == I2C_LL_ERROR)
   {
     display->state = SSD1306_STATE_ERROR;
@@ -228,15 +267,18 @@ SSD1306_Status SSD1306_Handler(SSD1306_Handle *display)
   switch (display->state)
   {
     case SSD1306_STATE_WAIT:
+      /* Если команд нет, делать нечего */
       if (display->count == 0U)
       {
         return SSD1306_OK;
       }
 
+      /* Команда есть, переходим к её выполнению */
       display->state = SSD1306_STATE_WORK;
       return SSD1306_OK;
 
     case SSD1306_STATE_WORK:
+      /* Выполняем команду, на которую указывает head */
       status = SSD1306_ExecuteCommand(display, &display->commands[display->head]);
       if (status != SSD1306_OK)
       {
@@ -244,13 +286,16 @@ SSD1306_Status SSD1306_Handler(SSD1306_Handle *display)
         return status;
       }
 
+      /* Команда запущена/выполнена, переходим к следующей */
       display->head++;
       if (display->head >= SSD1306_COMMAND_QUEUE_SIZE)
       {
         display->head = 0U;
       }
 
+      /* Одну команду обработали, значит команд стало меньше */
       display->count--;
+
       display->state = SSD1306_STATE_WAIT;
       return SSD1306_OK;
 
