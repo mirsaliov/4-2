@@ -41,9 +41,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+TIM_HandleTypeDef htim6;
+
 /* USER CODE BEGIN PV */
 I2C_LL_Handle hi2c_oled;
 SSD1306_Handle oled;
+volatile uint8_t oled_timer_flag = 0U;
 
 SSD1306_Config oled_config =
 {
@@ -80,6 +83,7 @@ const uint8_t test_bitmap_16x16[] =
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -117,6 +121,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   if (SSD1306_Begin(&oled, &hi2c_oled, &oled_config) != SSD1306_OK)
@@ -133,6 +138,7 @@ int main(void)
   //SSD1306_SetBitmapCommand(&oled, 56, 24, test_bitmap_16x16, 16, 16, SSD1306_COLOR_WHITE);
   SSD1306_SetUpdateCommand(&oled);
 
+  HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -142,7 +148,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    SSD1306_Handler(&oled);
+    if (oled_timer_flag != 0U)
+    {
+      oled_timer_flag = 0U;
+
+      SSD1306_Handler(&oled);
+    }
   }
   /* USER CODE END 3 */
 }
@@ -188,6 +199,44 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 8399;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 99;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
 }
 
 /**
@@ -240,7 +289,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM6)
+  {
+    oled_timer_flag = 1U;
+  }
+}
 /* USER CODE END 4 */
 
 /**
