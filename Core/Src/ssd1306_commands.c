@@ -1,6 +1,41 @@
 #include "ssd1306.h"
 
 /*
+ * Файл ssd1306_commands.c
+ * -----------------------
+ * Это верхний уровень OLED-драйвера.
+ *
+ * Главная идея этого файла — очередь команд.
+ * Пользователь в main.c не вызывает SSD1306_DrawLine() напрямую.
+ * Вместо этого он добавляет команды:
+ *
+ *   SSD1306_SetClearCommand(&oled);
+ *   SSD1306_SetLineCommand(&oled, ...);
+ *   SSD1306_SetUpdateCommand(&oled);
+ *
+ * Эти команды попадают в массив:
+ *
+ *   display->commands[]
+ *
+ * А потом функция SSD1306_Handler() постепенно выполняет команды по одной.
+ *
+ * Зачем так сделано:
+ * 1) main.c становится проще;
+ * 2) можно вызывать Handler по таймеру;
+ * 3) можно использовать polling и interrupt режимы;
+ * 4) верхний уровень не зависит от конкретной реализации I2C-передачи.
+ *
+ * Общая цепочка:
+ * main.c
+ *   -> SSD1306_Set...Command()
+ *   -> SSD1306_AddCommand()
+ *   -> очередь commands[]
+ *   -> SSD1306_Handler()
+ *   -> SSD1306_ExecuteCommand()
+ *   -> реальные функции из ssd1306.c
+ */
+
+/*
  * Верхний уровень запуска дисплея.
  * Пользователь передает структуру config, а функция сама:
  * 1) переносит настройки в I2C-драйвер;
@@ -105,6 +140,7 @@ SSD1306_Status SSD1306_AddCommand(SSD1306_Handle *display, const SSD1306_Command
   return SSD1306_OK;
 }
 
+/* Добавить в очередь команду очистки buffer[] */
 SSD1306_Status SSD1306_SetClearCommand(SSD1306_Handle *display)
 {
   SSD1306_Command command = {0};
@@ -114,6 +150,7 @@ SSD1306_Status SSD1306_SetClearCommand(SSD1306_Handle *display)
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду заливки всего buffer[] одним цветом */
 SSD1306_Status SSD1306_SetFillCommand(SSD1306_Handle *display, uint8_t color)
 {
   SSD1306_Command command = {0};
@@ -124,6 +161,7 @@ SSD1306_Status SSD1306_SetFillCommand(SSD1306_Handle *display, uint8_t color)
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду рисования одного пикселя */
 SSD1306_Status SSD1306_SetPixelCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t color)
 {
   SSD1306_Command command = {0};
@@ -136,6 +174,7 @@ SSD1306_Status SSD1306_SetPixelCommand(SSD1306_Handle *display, int16_t x, int16
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду рисования линии */
 SSD1306_Status SSD1306_SetLineCommand(SSD1306_Handle *display, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t color)
 {
   SSD1306_Command command = {0};
@@ -150,6 +189,7 @@ SSD1306_Status SSD1306_SetLineCommand(SSD1306_Handle *display, int16_t x0, int16
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду рисования прямоугольника */
 SSD1306_Status SSD1306_SetRectCommand(SSD1306_Handle *display, int16_t x, int16_t y, uint8_t width, uint8_t height, uint8_t color)
 {
   SSD1306_Command command = {0};
@@ -164,6 +204,7 @@ SSD1306_Status SSD1306_SetRectCommand(SSD1306_Handle *display, int16_t x, int16_
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду рисования bitmap-картинки */
 SSD1306_Status SSD1306_SetBitmapCommand(SSD1306_Handle *display, int16_t x, int16_t y, const uint8_t *bitmap, uint8_t width, uint8_t height, uint8_t color)
 {
   SSD1306_Command command = {0};
@@ -179,6 +220,7 @@ SSD1306_Status SSD1306_SetBitmapCommand(SSD1306_Handle *display, int16_t x, int1
   return SSD1306_AddCommand(display, &command);
 }
 
+/* Добавить в очередь команду отправки buffer[] на OLED */
 SSD1306_Status SSD1306_SetUpdateCommand(SSD1306_Handle *display)
 {
   SSD1306_Command command = {0};
@@ -305,6 +347,7 @@ SSD1306_Status SSD1306_Handler(SSD1306_Handle *display)
   }
 }
 
+/* Проверка, есть ли команды в очереди */
 uint8_t SSD1306_HasCommands(SSD1306_Handle *display)
 {
   if (display == 0)
@@ -315,6 +358,11 @@ uint8_t SSD1306_HasCommands(SSD1306_Handle *display)
   return (display->count > 0U) ? 1U : 0U;
 }
 
+/*
+ * Выполнение готового массива команд.
+ * Сейчас в main.c это не обязательно использовать,
+ * но функция оставлена как дополнительная возможность драйвера.
+ */
 SSD1306_Status SSD1306_ExecuteCommandList(SSD1306_Handle *display, const SSD1306_Command *commands, uint16_t count)
 {
   uint16_t i;
