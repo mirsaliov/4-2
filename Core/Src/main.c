@@ -48,13 +48,6 @@ I2C_LL_Handle hi2c_oled;
 SSD1306_Handle oled;
 
 /*
- * Флаг от TIM6.
- * В прерывании таймера ставим 1,
- * а в while(1) по этому флагу вызываем SSD1306_Handler().
- */
-volatile uint8_t oled_timer_flag = 0U;
-
-/*
  * Главная настройка OLED для пользователя.
  * Здесь выбирается:
  * - какой I2C использовать;
@@ -69,11 +62,18 @@ SSD1306_Config oled_config =
   .timeout = 100000U,
   .address = SSD1306_I2C_ADDR_7BIT,
 
-  /* Блокирующий режим: функция ждёт окончания передачи */
-  .mode = I2C_LL_MODE_POLLING
+  /*
+   * Так как SSD1306_Handler() теперь вызывается прямо из TIM6 interrupt,
+   * лучше использовать I2C interrupt-режим.
+   * Тогда Handler не будет долго висеть в прерывании таймера.
+   */
+  .mode = I2C_LL_MODE_INTERRUPT
 
-  /* Неблокирующий режим: передача идёт через I2C-прерывания */
-  /* .mode = I2C_LL_MODE_INTERRUPT */
+  /*
+   * Polling тоже остаётся в драйвере, но при прямом вызове Handler из таймера
+   * его лучше не включать: UPDATE может занять много времени внутри IRQ.
+   */
+  /* .mode = I2C_LL_MODE_POLLING */
 };
 
 /* Тестовая bitmap-картинка 16x16 */
@@ -155,7 +155,7 @@ int main(void)
   /*
    * Пользовательские команды для OLED.
    * Они не выполняются сразу, а добавляются в очередь.
-   * Выполнять их будет SSD1306_Handler().
+   * Выполнять их будет SSD1306_Handler(), который вызывается таймером TIM6.
    */
   SSD1306_SetClearCommand(&oled);
   SSD1306_SetPixelCommand(&oled, 10, 10, SSD1306_COLOR_WHITE);
@@ -166,7 +166,7 @@ int main(void)
   /* UPDATE обязательно нужен, чтобы buffer[] реально отправился на OLED */
   SSD1306_SetUpdateCommand(&oled);
 
-  /* Запускаем TIM6. Он будет периодически ставить oled_timer_flag = 1 */
+  /* Запускаем TIM6. Теперь он напрямую вызывает SSD1306_Handler() */
   HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
@@ -177,17 +177,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if (oled_timer_flag != 0U)
-    {
-      oled_timer_flag = 0U;
-
-      /*
-       * Handler вызывается по таймеру.
-       * В polling-режиме он выполнит команду полностью.
-       * В interrupt-режиме, если I2C занят, он сразу выйдет и не будет ждать.
-       */
-      SSD1306_Handler(&oled);
-    }
+    /*
+     * Основной цикл свободен.
+     * Обслуживание очереди OLED выполняется в HAL_TIM_PeriodElapsedCallback().
+     */
   }
   /* USER CODE END 3 */
 }
@@ -327,8 +320,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6)
   {
-    /* TIM6 сработал: разрешаем один вызов SSD1306_Handler() в while(1) */
-    oled_timer_flag = 1U;
+    /*
+     * TIM6 напрямую обслуживает OLED-драйвер.
+     * В interrupt-режиме I2C это неблокирующая операция:
+     * если I2C занят, SSD1306_Handler() сразу выйдет.
+     */
+    SSD1306_Handler(&oled);
   }
 }
 /* USER CODE END 4 */
